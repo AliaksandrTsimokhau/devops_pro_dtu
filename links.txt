@@ -5,6 +5,7 @@
 # examples
 https://gitlab.com/gitlab-examples/kubernetes-deploy/-/tree/master?ref_type=heads
 https://gitlab.com/gitlab-examples/docker
+https://github.com/omerbsezer/Fast-Kubernetes/tree/main
 
 # tutorials
 https://docs.gitlab.com/ee/tutorials/create_register_first_runner/index.html

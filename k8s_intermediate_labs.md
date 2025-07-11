@@ -2251,7 +2251,339 @@ kubectl get pods
 ```
 
 ---
+## Lab 11: Kubernetes Taints and Tolerations
 
+This lab demonstrates how to use taints and tolerations to control pod scheduling on nodes.
+
+### Objectives
+
+- Add and remove taints on a node
+- Observe pod scheduling behavior with and without tolerations
+- Understand the effects of `NoSchedule` and `NoExecute` taints
+
+---
+
+### Steps
+
+#### 1. Start Minikube
+
+Start your Kubernetes cluster (example: WSL2 Ubuntu 20.04):
+
+```bash
+minikube start
+```
+
+#### 2. Create Pod Manifest with Tolerations
+
+Create a file named `podtoleration.yaml` with the following content:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: toleratedpod1
+  labels:
+    env: test
+spec:
+  containers:
+  - name: toleratedcontainer1
+    image: nginx:latest
+  tolerations:
+  - key: "app"
+    operator: "Equal"
+    value: "production"
+    effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: toleratedpod2
+  labels:
+    env: test
+spec:
+  containers:
+  - name: toleratedcontainer2
+    image: nginx:latest
+  tolerations:
+  - key: "app"
+    operator: "Exists"
+    effect: "NoSchedule"
+```
+
+#### 3. Check Node Taints
+
+View node details to confirm there are no taints:
+
+```bash
+kubectl describe node minikube
+```
+
+#### 4. Add a Taint to the Node
+
+Add a `NoSchedule` taint:
+
+```bash
+kubectl taint node minikube app=production:NoSchedule
+```
+
+#### 5. Create a Pod Without Toleration
+
+Run a pod that does **not** tolerate the taint:
+
+```bash
+kubectl run test --image=nginx --restart=Never
+```
+
+Check its status:
+
+```bash
+kubectl get pods
+```
+
+The pod should remain in `Pending` state because it does not tolerate the taint.
+
+#### 6. Deploy Pods with Tolerations
+
+Apply the manifest to create pods that tolerate the taint:
+
+```bash
+kubectl apply -f podtoleration.yaml
+kubectl get pods
+```
+
+These pods should be running, as they tolerate the taint.
+
+#### 7. Add a `NoExecute` Taint
+
+Add a `NoExecute` taint to the node:
+
+```bash
+kubectl taint node minikube version=new:NoExecute
+```
+
+Observe that pods without a matching toleration are evicted from the node.
+
+#### 8. Remove the Taint
+
+Remove the `NoExecute` taint:
+
+```bash
+kubectl taint node minikube version-
+```
+
+#### 9. Cleanup
+
+Delete the test pods and stop minikube if desired:
+
+```bash
+kubectl delete pod test toleratedpod1 toleratedpod2
+minikube delete
+```
+
+---
+
+### Summary
+
+- Pods without matching tolerations cannot be scheduled on tainted nodes.
+- `NoSchedule` prevents scheduling; `NoExecute` also evicts running pods.
+- Tolerations allow specific pods to run on tainted nodes.
+
+For more details, see the [Kubernetes documentation on taints and tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+
+---
+## Node Affinity, Pod Affinity, and Anti-Affinity Demo
+
+This section demonstrates how to control pod placement in Kubernetes using node affinity, pod affinity, and anti-affinity rules.
+
+---
+
+### Node Affinity Demo
+
+Node affinity allows you to constrain which nodes your pods are eligible to be scheduled on, based on node labels.
+
+**Steps:**
+
+1. **List cluster nodes:**
+  ```bash
+  kubectl get nodes
+  ```
+
+2. **Label two worker nodes:**
+  ```bash
+  kubectl label node k8s-node-worker-3 app=frontend
+  kubectl label node k8s-node-worker-4 app=frontend
+  ```
+
+3. **Create a namespace for the demo:**
+  ```bash
+  kubectl create ns test
+  ```
+
+4. **Create a deployment with node affinity:**
+
+  Save as `deployment-node-affinity.yaml`:
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: node-affinity
+    namespace: test
+  spec:
+    replicas: 4
+    selector:
+     matchLabels:
+      run: nginx
+    template:
+     metadata:
+      labels:
+        run: nginx
+     spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: Always
+      affinity:
+        nodeAffinity:
+         requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: app
+             operator: In
+             values:
+             - frontend
+  ```
+
+5. **Deploy and verify:**
+  ```bash
+  kubectl apply -f deployment-node-affinity.yaml
+  kubectl get deploy -n test
+  kubectl get pods -n test
+  kubectl get pod -o=custom-columns=NODE:.spec.nodeName,NAME:.metadata.name -n test
+  ```
+
+  All pods should be scheduled on the labeled nodes (`k8s-node-worker-3` and `k8s-node-worker-4`).
+
+6. **Cleanup:**
+  ```bash
+  kubectl delete ns test --cascade
+  ```
+
+---
+
+### Pod Affinity and Anti-Affinity Demo
+
+Pod affinity and anti-affinity allow you to influence pod scheduling based on the labels of other pods.
+
+#### **Pod Anti-Affinity Example (Redis)**
+
+Run three Redis replicas, ensuring each lands on a different node.
+
+`redis.yaml`:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cache
+  namespace: test
+spec:
+  replicas: 3
+  selector:
+   matchLabels:
+    app: store
+  template:
+   metadata:
+    labels:
+      app: store
+   spec:
+    affinity:
+      podAntiAffinity:
+       requiredDuringSchedulingIgnoredDuringExecution:
+       - labelSelector:
+          matchExpressions:
+          - key: app
+           operator: In
+           values:
+           - store
+        topologyKey: "kubernetes.io/hostname"
+    containers:
+    - name: redis-server
+      image: redis:3.2-alpine
+```
+
+Apply and verify:
+```bash
+kubectl apply -f redis.yaml
+kubectl -n test get deploy
+kubectl get pod -o=custom-columns=NODE:.spec.nodeName,NAME:.metadata.name -n test
+```
+Each Redis pod should be on a different node.
+
+---
+
+#### **Pod Affinity and Anti-Affinity Example (Web Server)**
+
+Co-locate each web server pod with a Redis pod, but ensure no two web pods are on the same node.
+
+`web-server.yaml`:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+  namespace: test
+spec:
+  replicas: 3
+  selector:
+   matchLabels:
+    app: web-store
+  template:
+   metadata:
+    labels:
+      app: web-store
+   spec:
+    affinity:
+      podAntiAffinity:
+       requiredDuringSchedulingIgnoredDuringExecution:
+       - labelSelector:
+          matchExpressions:
+          - key: app
+           operator: In
+           values:
+           - web-store
+        topologyKey: "kubernetes.io/hostname"
+      podAffinity:
+       requiredDuringSchedulingIgnoredDuringExecution:
+       - labelSelector:
+          matchExpressions:
+          - key: app
+           operator: In
+           values:
+           - store
+        topologyKey: "kubernetes.io/hostname"
+    containers:
+    - name: web-app
+      image: nginx:1.12-alpine
+```
+
+Apply and verify:
+```bash
+kubectl apply -f web-server.yaml
+kubectl get pod -o=custom-columns=NODE:.spec.nodeName,NAME:.metadata.name -n test
+```
+Each web pod should be co-located with a Redis pod, and no two web pods should share a node.
+
+---
+
+### Conclusion
+
+- **Node affinity** restricts pods to nodes with specific labels.
+- **Pod anti-affinity** prevents pods with matching labels from being scheduled on the same node.
+- **Pod affinity** ensures pods are scheduled together with other pods (e.g., co-locating web and cache pods).
+
+These features help optimize pod placement for performance, reliability, and custom requirements.
+
+For more, see the [Kubernetes Affinity and Anti-Affinity documentation](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity).
+---
 ## Lab Completion Summary
 
 Congratulations! You have completed all 10 intermediate Kubernetes labs. Here's what you've learned:
