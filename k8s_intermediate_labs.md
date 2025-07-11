@@ -1,3 +1,23 @@
+# Kubernetes Intermediate Labs - Table of Contents
+
+- [Lab 1: Advanced Deployment Strategies with Rolling Updates and Rollbacks](#lab-1-advanced-deployment-strategies-with-rolling-updates-and-rollbacks)
+- [Lab 2: ConfigMaps and Secrets Management](#lab-2-configmaps-and-secrets-management)
+- [Lab 3: Persistent Volumes and StatefulSets](#lab-3-persistent-volumes-and-statefulsets)
+- [Lab 4: Service Mesh Basics with Network Policies](#lab-4-service-mesh-basics-with-network-policies)
+- [Lab 5: Horizontal Pod Autoscaler (HPA) and Vertical Pod Autoscaler (VPA)](#lab-5-horizontal-pod-autoscaler-hpa-and-vertical-pod-autoscaler-vpa)
+- [Lab 6: Jobs, CronJobs, and Init Containers](#lab-6-jobs-cronjobs-and-init-containers)
+- [Lab 7: RBAC (Role-Based Access Control) and Service Accounts](#lab-7-rbac-role-based-access-control-and-service-accounts)
+- [Lab 8: Ingress Controllers and TLS Termination](#lab-8-ingress-controllers-and-tls-termination)
+- [Lab 9: Monitoring and Observability with Prometheus and Grafana](#lab-9-monitoring-and-observability-with-prometheus-and-grafana)
+- [Lab 10: Advanced Troubleshooting and Debugging](#lab-10-advanced-troubleshooting-and-debugging)
+- [Lab 11: Kubernetes Taints and Tolerations](#lab-11-kubernetes-taints-and-tolerations)
+- [Lab 12: Node Affinity, Pod Affinity, and Anti-Affinity Demo](#lab-12-node-affinity-pod-affinity-and-anti-affinity-demo)
+- [Lab 13: Kubernetes Service Types (ClusterIP, NodePort, LoadBalancer)](#lab-13-kubernetes-service-types-clusterip-nodeport-loadbalancer)
+- [Lab Completion Summary](#lab-completion-summary)
+
+---
+
+
 ## Getting Started: Core Kubernetes Resources
 
 - **Practice hands-on with essential Kubernetes resources:**
@@ -2391,7 +2411,7 @@ minikube delete
 For more details, see the [Kubernetes documentation on taints and tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
 
 ---
-## Node Affinity, Pod Affinity, and Anti-Affinity Demo
+## LAB 12. Node Affinity, Pod Affinity, and Anti-Affinity Demo
 
 This section demonstrates how to control pod placement in Kubernetes using node affinity, pod affinity, and anti-affinity rules.
 
@@ -2583,6 +2603,218 @@ Each web pod should be co-located with a Redis pod, and no two web pods should s
 These features help optimize pod placement for performance, reliability, and custom requirements.
 
 For more, see the [Kubernetes Affinity and Anti-Affinity documentation](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity).
+
+---
+
+## LAB 13 : Kubernetes Service Types (ClusterIP, NodePort, LoadBalancer)
+
+This lab demonstrates how to expose applications in Kubernetes using different Service types: **ClusterIP**, **NodePort**, and **LoadBalancer**.
+
+### Objectives
+
+- Deploy frontend and backend applications.
+- Expose backend using a ClusterIP Service (internal access).
+- Expose frontend using NodePort (external access via node IP).
+- Expose frontend using LoadBalancer (external access via cloud provider).
+
+---
+
+### 1. Deploy Frontend and Backend Applications
+
+Create deployments for both frontend and backend:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    team: development
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    team: development
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: ozgurozturknet/k8s:backend
+        ports:
+        - containerPort: 5000
+```
+
+Apply the deployments:
+
+```bash
+kubectl apply -f deploy.yaml
+kubectl get pods -w
+```
+
+---
+
+### 2. Expose Backend with ClusterIP Service
+
+Create a ClusterIP Service for the backend:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+```
+
+Apply the service:
+
+```bash
+kubectl apply -f backend_clusterip.yaml
+kubectl get svc
+```
+
+**Test internal access:**
+
+- Connect to a frontend pod:
+  ```bash
+  kubectl exec -it <frontend-pod-name> -- bash
+  ```
+- Use DNS to resolve the backend service:
+  ```bash
+  nslookup backend
+  ```
+- Access the backend:
+  ```bash
+  curl backend:5000
+  ```
+
+---
+
+### 3. Expose Frontend with NodePort Service
+
+Create a NodePort Service for the frontend:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+```
+
+Apply the service:
+
+```bash
+kubectl apply -f backend_nodeport.yaml
+kubectl get svc
+```
+
+**Test external access:**
+
+- Find the NodePort (e.g., 32098) and node IP.
+- Access the frontend from outside the cluster:
+  ```
+  curl http://<NodeIP>:<NodePort>
+  ```
+- For Minikube, use:
+  ```
+  minikube service frontend
+  ```
+
+---
+
+### 4. Expose Frontend with LoadBalancer Service (Cloud Only)
+
+Create a LoadBalancer Service (requires cloud provider):
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontendlb
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+```
+
+Apply the service:
+
+```bash
+kubectl apply -f backend_loadbalancer.yaml
+kubectl get svc
+```
+
+- Wait for the `EXTERNAL-IP` to be assigned.
+- Access the frontend using the external IP.
+
+---
+
+### 5. Expose Services Imperatively
+
+You can also create services using `kubectl expose`:
+
+```bash
+kubectl expose deployment frontend --type=NodePort --name=frontend-nodeport
+kubectl expose deployment backend --type=ClusterIP --name=backend-clusterip
+```
+
+---
+
+### Summary
+
+- **ClusterIP**: Default, internal-only access.
+- **NodePort**: Exposes service on each node’s IP at a static port.
+- **LoadBalancer**: Provisions an external IP (cloud only).
+
+For more details, see the [Kubernetes Services documentation](https://kubernetes.io/docs/concepts/services-networking/service/).
+
+---
+
+
+
 ---
 ## Lab Completion Summary
 
