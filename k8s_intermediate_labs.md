@@ -1,3 +1,15 @@
+## Getting Started: Core Kubernetes Resources
+
+- **Practice hands-on with essential Kubernetes resources:**
+  - **Pods:** Learn to deploy and manage single or multi-container Pods.
+  - **Deployments:** Explore rolling updates, scaling, and self-healing features.
+
+- **Try interactive labs for guided exercises:**
+  - [Pods Lab](https://studio.kodekloud.com/labs/kubernetes/pods-stable)
+  - [Deployments Lab](https://studio.kodekloud.com/labs/kubernetes/deployments-stable)
+
+- **Estimated time:** 30 minutes
+
 # Kubernetes Intermediate Labs - 10 Hands-On Exercises
 
 ## Prerequisites
