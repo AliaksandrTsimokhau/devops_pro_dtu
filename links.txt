@@ -1,0 +1,15 @@
+###
+### Gitlab 
+###
+
+# examples
+https://gitlab.com/gitlab-examples/kubernetes-deploy/-/tree/master?ref_type=heads
+https://gitlab.com/gitlab-examples/docker
+
+# tutorials
+https://docs.gitlab.com/ee/tutorials/create_register_first_runner/index.html
+https://about.gitlab.com/blog/2021/10/18/improve-cd-workflows-helm-chart-registry/
+https://docs.gitlab.com/tutorials/build_application/
+https://gitlab.com/gitlab-org/gitlab/-/tree/master/doc/tutorials?ref_type=heads
+https://about.gitlab.com/blog/from-code-to-production-a-guide-to-continuous-deployment-with-gitlab/
+https://gartsolutions.com/gitlab-ci-cd-a-comprehensive-guide-and-gitlab-pipelines-cheat-sheet/
