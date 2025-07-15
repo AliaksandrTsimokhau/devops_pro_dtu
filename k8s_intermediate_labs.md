@@ -1,5 +1,6 @@
 # Kubernetes Intermediate Labs - Table of Contents
 
+- [Getting Started: Core Kubernetes Resources](#getting-started-core-kubernetes-resources)
 - [Lab 1: Advanced Deployment Strategies with Rolling Updates and Rollbacks](#lab-1-advanced-deployment-strategies-with-rolling-updates-and-rollbacks)
 - [Lab 2: ConfigMaps and Secrets Management](#lab-2-configmaps-and-secrets-management)
 - [Lab 3: Persistent Volumes and StatefulSets](#lab-3-persistent-volumes-and-statefulsets)
@@ -45,16 +46,7 @@ Master deployment strategies, rolling updates, and rollback mechanisms.
 
 ### Instructions
 
-1. **Create a deployment with version tracking:**
-```bash
-# Create deployment
-kubectl create deployment webapp --image=nginx:1.19 --replicas=3
-
-# Add labels for version tracking
-kubectl patch deployment webapp -p '{"metadata":{"labels":{"version":"v1"}}}'
-```
-
-2. **Configure rolling update strategy:**
+1. **Create a deployment with version tracking and Configure rolling update strategy:**
 ```yaml
 # webapp-deployment.yaml
 apiVersion: apps/v1
@@ -92,14 +84,14 @@ spec:
           periodSeconds: 5
 ```
 
-3. **Apply and monitor the deployment:**
+2. **Apply and monitor the deployment:**
 ```bash
 kubectl apply -f webapp-deployment.yaml
 kubectl rollout status deployment/webapp
 kubectl get pods -l app=webapp --show-labels
 ```
 
-4. **Perform rolling update:**
+3. **Perform rolling update:**
 ```bash
 # Update to nginx:1.20
 kubectl set image deployment/webapp webapp=nginx:1.20
@@ -109,13 +101,13 @@ kubectl rollout status deployment/webapp
 kubectl get pods -l app=webapp -w
 ```
 
-5. **Check rollout history:**
+4. **Check rollout history:**
 ```bash
 kubectl rollout history deployment/webapp
 kubectl rollout history deployment/webapp --revision=2
 ```
 
-6. **Simulate a bad deployment and rollback:**
+5. **Simulate a bad deployment and rollback:**
 ```bash
 # Deploy a non-existent image
 kubectl set image deployment/webapp webapp=nginx:bad-version
@@ -163,13 +155,14 @@ kubectl create configmap app-properties --from-file=app.properties
 ```
 
 3. **Create Secrets:**
+> Note: Windows users should use Git Bash to run OpenSSL commands, as native Windows command prompt may not support them.`aaz
 ```bash
 # Create secret from literal
 kubectl create secret generic db-credentials \
   --from-literal=username=admin \
   --from-literal=password=supersecret123
 
-# Create TLS secret
+# Create TLS secret 
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout tls.key -out tls.crt -subj "/CN=myapp.local"
 kubectl create secret tls tls-secret --key=tls.key --cert=tls.crt
