@@ -855,7 +855,7 @@ spec:
 ```bash
 # Clone VPA repository
 git clone https://github.com/kubernetes/autoscaler.git
-cd autoscaler/vertical-pod-autoscaler/
+cd vertical-pod-autoscaler
 
 # Install VPA
 ./hack/vpa-up.sh
