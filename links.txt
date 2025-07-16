@@ -14,3 +14,5 @@ https://docs.gitlab.com/tutorials/build_application/
 https://gitlab.com/gitlab-org/gitlab/-/tree/master/doc/tutorials?ref_type=heads
 https://about.gitlab.com/blog/from-code-to-production-a-guide-to-continuous-deployment-with-gitlab/
 https://gartsolutions.com/gitlab-ci-cd-a-comprehensive-guide-and-gitlab-pipelines-cheat-sheet/
+
+https://learnkube.com/production-best-practices
