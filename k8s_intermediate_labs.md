@@ -630,7 +630,7 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  - to: {} # Allow DNS
+  - to:
     ports:
     - protocol: UDP
       port: 53
