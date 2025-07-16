@@ -1688,7 +1688,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: quay.io/prometheus/prometheus-example-app:latest
+        image: nilebox/prometheus-example-app:latest
         ports:
         - containerPort: 8080
         env:
