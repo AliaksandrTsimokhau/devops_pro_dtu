@@ -4,7 +4,7 @@
 - [Lab 1: Advanced Deployment Strategies with Rolling Updates and Rollbacks](#lab-1-advanced-deployment-strategies-with-rolling-updates-and-rollbacks)
 - [Lab 2: ConfigMaps and Secrets Management](#lab-2-configmaps-and-secrets-management)
 - [Lab 3: Persistent Volumes and StatefulSets](#lab-3-persistent-volumes-and-statefulsets)
-- [Lab 4: Service Mesh Basics with Network Policies](#lab-4-service-mesh-basics-with-network-policies)
+- [Lab 4: Network Policies](#lab-4-network-policies)
 - [Lab 5: Horizontal Pod Autoscaler (HPA) and Vertical Pod Autoscaler (VPA)](#lab-5-horizontal-pod-autoscaler-hpa-and-vertical-pod-autoscaler-vpa)
 - [Lab 6: Jobs, CronJobs, and Init Containers](#lab-6-jobs-cronjobs-and-init-containers)
 - [Lab 7: RBAC (Role-Based Access Control) and Service Accounts](#lab-7-rbac-role-based-access-control-and-service-accounts)
@@ -414,7 +414,7 @@ kubectl describe statefulset postgres
 
 ---
 
-## Lab 4: Service Mesh Basics with Network Policies
+## Lab 4: Network Policies
 
 ### Objective
 Implement network security policies and understand service-to-service communication.
