@@ -1,65 +1,219 @@
 
-LAB create repository to deploy helm charts using helmfile
+# LAB: Create a Repository to Deploy Helm Charts Using Helmfile
 
-lab requirements:
-kubectl, helm, helmchart, kubernetes cluster (local kind, microk8s, minikube or managed solution in the cloud gke, eks, aks etc.), gitlab server.
-estimated time to complete 1h 30min 
+## Lab Requirements
 
-1 create gitlab repository
-2 create repository structure folders files etc. think of what abstraction layers could be in your setup (folders in release with values)
+- `kubectl`
+- `helm`
+- Existing or new Helm chart(s)
+- Kubernetes cluster (local: kind, microk8s, minikube, or managed: GKE, EKS, AKS, etc.)
+- GitLab server
 
-release-helmfile - релизный репозиторий
-    ci - фолдер с gitlab ci yaml файлами
-    charts - фолдер с локальными чартами для удобства и ускорения разработки чтобы не пересобирать чарт каждый раз как артефакт
-    release - фолдер с вэльюс для релизов
-        common-tier       - абстракция, слой для логической группировки релизов
-            release-name1 - фолдеры должны иметь имена такие же как указаны в helmfile
-            release-name2
-                ....
-            helmfile.yaml - helmfile  в котором описана устновка релизов
-        another-tier      - абстракция, слой для логической группировки релизов
-            release-name1 - фолдеры должны иметь имена такие же как указаны в helmfile
-            release-name2
-                ....
-            helmfile.yaml - helmfile  в котором описана устновка релизов
-        common.yaml - можно вынести общие настройки для helmfile укзать как и в каком порядке темлпейтить путь к вэльюс
-        ....
-    .gitignore
-    .gitlab.yaml - основной файл описывающий запуск пайплайнов в корне репозитория
-    environments.yaml - файл с описание окружений (путь к файлам с вэльюс, просто вэлью в явном виде и тд, фича флаги например ставить тот или иной релиз, здесь выполнятеся кастомизация каждого из окружений)
-    helmfile.yaml - основной helmfile в котором указано расположение helmfile-ов расположенных в логических слоях
-    README.md 
+**Estimated time:** 1h 30min
 
-!important - create at least two layers of abstraction and deploy at least two charts one local and one from artifact registry
+---
 
-3 put existing helmchart or create new one in the charts folder
-4 create helmfile for each of you logical tier folders and add a description of a release in each one for local chart and one more for the chart from artifact registry. you could resuse chart from lab `gitlab_ci_lab_helm.md`
+## 1. Create a GitLab Repository
+
+Create a new repository in GitLab for your Helmfile-based deployment setup.
+
+### Instructions to Create a GitLab Repository
+
+1. Log in to your GitLab account.
+2. Click the **"New project"** button (usually found on the dashboard or under the Projects menu).
+3. Choose **"Create blank project"**.
+4. Enter a **Project name** (e.g., `release-helmfile`).
+5. Optionally, add a description and set the visibility (Private, Internal, or Public).
+6. Click **"Create project"**.
+7. Clone the repository to your local machine:
+
+    ```sh
+    git clone https://<your-gitlab-hostname>/<your-namespace>/<your-repo>.git
+    cd <your-repo>
+    ```
+
+8. Start adding your files and commit your changes.
+
+---
+
+## 2. Repository Structure
+
+Design your repository with logical abstraction layers for releases and values.
+
+<details>
+<summary>Example structure</summary>
+
+```
+release-helmfile/
+├── ci/                  # GitLab CI YAML files and scripts
+├── charts/              # Local Helm charts for development
+├── release/             # Values for releases, organized by logical tiers
+│   ├── common-tier/
+│   │   ├── release-name1/
+│   │   ├── release-name2/
+│   │   └── helmfile.yaml
+│   ├── another-tier/
+│   │   ├── release-name1/
+│   │   ├── release-name2/
+│   │   └── helmfile.yaml
+│   └── common.yaml      # Common Helmfile settings and values paths
+├── .gitignore
+├── .gitlab.yaml         # Main GitLab pipeline file
+├── environments.yaml    # Environment-specific settings and feature flags
+├── helmfile.yaml        # Main Helmfile referencing logical tiers
+└── README.md
+```
+</details>
+
+**Requirement:** Create at least two abstraction layers and deploy at least two charts (one local, one from an artifact registry).
+
+---
+
+## 3. Add Helm Charts
+
+- Place an existing or new Helm chart in the `charts/` folder. you could resuse chart from lab `gitlab_ci_lab_helm.md`
 
 #! give an example of release description one for local and for external
+---
 
-5 describe path to each of the logical tiers in helmfile located at the repository root (this is the main helmfile, content of all the helmfiles defined in ligical folders will be merged there)
+## 4. Create Helmfile for Each Logical Tier
 
-#! give an example
+- In each logical tier folder (e.g., `common-tier`, `another-tier`), create a `helmfile.yaml`.
+- Add release descriptions for:
+    - A local chart (from `charts/`)
+    - An external chart (from a remote registry)
 
-6 define helmfile settings in common.yaml file (add remote registry alias here). next step is to define here description of all the values paths which helmfile will try to include while templating chart for release. path to values could be templated. define as much abstraction as you need all files which could not be found in release folders with values will be skipped
+**Example:**
 
-#! provide example and instructions
+```yaml
+# release/common-tier/helmfile.yaml
+releases:
+    - name: my-local-app
+        chart: ../../charts/my-local-app
+        values:
+            - values.yaml
 
-7 define several environments description in environments.yaml . values, feature flags and so on (ex kube-context, cluster name, something specific for the env)
+    - name: nginx-ingress
+        chart: stable/nginx-ingress
+        version: 4.0.6
+        values:
+            - values-nginx.yaml
+```
 
-#! give an example
+---
 
-8. create pipeline description in .gitlab.yaml to deploy helm charts to k8s cluster. all repeated parts that could be reused and stored in ci folder and included into the main .gitlab.ci file. also some required scripts for pipelines could be placed there.
- add variables i.e with secret values into repo ci/cd settings -> variables you could mask and safely use them in your pipelines ex. authorization to registry, k8s cluster, cloud project and so on.
+## 5. Reference Logical Tiers in the Main Helmfile
 
-#! for example before_script with auth, some logical grouping could also be made (dev, staging, prod and so on) beacuse sometimes if you have lots of envs it become difficult to find and manage pipeline in a very big file with thoussands of lines of code
+- In the root `helmfile.yaml`, reference all logical tier helmfiles.
 
-possible pipline stages
-scan repo for misconfigurations using trivy or any other scaner (could be run for main branch only on mr events) -> validate (lint your local helm charts - charts should be templated and linted without failures to continue) ->
-plan (make a diff with current env state failure allowed for clean envs, diff should show all content as new) -> deploy helm charts to env.
-jobs should be created for each env in each stage
+**Example:**
 
-one more action we could trigger deploy from another repo after helm charts where successfully builded and uploaded to artifact registry as .tgz artifacts 
+```yaml
+# helmfile.yaml
+helmfiles:
+    - path: release/common-tier/helmfile.yaml
+    - path: release/another-tier/helmfile.yaml
+```
 
-9. add .gitignore file
-10. add description of your repo to the readme.md file. its a good practice to describe the content and the purpose of the repo. also you could give some instruction how to work with it. (something specific developers should know, how to prepare local dev env etc)
+---
+
+## 6. Define Common Settings in `common.yaml`
+
+- Add remote registry aliases and describe all values paths for templating.
+- Paths can be templated; missing files will be skipped.
+
+**Example:**
+
+```yaml
+# release/common.yaml
+repositories:
+    - name: stable
+        url: https://charts.helm.sh/stable
+
+valuesPaths:
+    - "{{ .Release.Name }}/values.yaml"
+    - "common-values.yaml"
+```
+
+---
+
+## 7. Define Environments in `environments.yaml`
+
+- Describe environments, values, feature flags, etc.
+
+**Example:**
+
+```yaml
+# environments.yaml
+environments:
+    dev:
+        kubeContext: kind-dev
+        clusterName: dev-cluster
+        featureFlags:
+            enableFeatureX: true
+    prod:
+        kubeContext: prod-context
+        clusterName: prod-cluster
+        featureFlags:
+            enableFeatureX: false
+```
+
+---
+
+## 8. Create GitLab Pipeline in `.gitlab.yaml`
+
+- Define pipeline stages: scan, validate, plan, deploy.
+- Store reusable parts in `ci/` and include them.
+- Use CI/CD variables for secrets (e.g., registry, cluster auth).
+
+**Example:**
+
+```yaml
+# .gitlab.yaml
+stages:
+    - scan
+    - validate
+    - plan
+    - deploy
+
+include:
+    - local: 'ci/before_script.yaml'
+
+scan:
+    stage: scan
+    script:
+        - trivy config .
+
+validate:
+    stage: validate
+    script:
+        - helm lint charts/*
+
+plan:
+    stage: plan
+    script:
+        - helmfile diff
+
+deploy:
+    stage: deploy
+    script:
+        - helmfile apply
+    environment:
+        name: $CI_ENVIRONMENT_NAME
+```
+
+---
+
+## 9. Add `.gitignore`
+
+- Ignore files and folders as needed (e.g., `.DS_Store`, `*.tgz`, etc.).
+
+---
+
+## 10. Document Your Repository
+
+- In `README.md`, describe the repo's purpose, structure, and usage instructions.
+- Include any setup or developer notes.
+
+---
+
