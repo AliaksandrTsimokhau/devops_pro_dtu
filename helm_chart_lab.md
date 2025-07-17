@@ -243,7 +243,7 @@ helm install example4 local/mychart --set service.type=NodePort
 
 ## Step 5: Add Dependencies
 
-Add a dependency (e.g., MariaDB) in `requirements.yaml`:
+Add a dependency (e.g., MariaDB) in `Chart.yaml`:
 
 ```yaml
 dependencies:
