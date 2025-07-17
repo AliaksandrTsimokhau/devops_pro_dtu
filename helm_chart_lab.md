@@ -248,8 +248,8 @@ Add a dependency (e.g., MariaDB) in `Chart.yaml`:
 ```yaml
 dependencies:
     - name: mariadb
-        version: 0.6.0
-        repository: https://charts.helm.sh/stable
+        version: 21.0.3
+        repository: oci://registry-1.docker.io/bitnamicharts
 ```
 
 Update dependencies:
