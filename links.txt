@@ -2,6 +2,8 @@
 ### Gitlab 
 ###
 
+gitlab-devops-dtu.ip-dynamic.org 
+
 # examples
 https://gitlab.com/gitlab-examples/kubernetes-deploy/-/tree/master?ref_type=heads
 https://gitlab.com/gitlab-examples/docker
