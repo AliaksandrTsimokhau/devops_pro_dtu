@@ -127,8 +127,8 @@ helmfiles:
 ```yaml
 # release/common.yaml
 repositories:
-    - name: stable
-        url: https://charts.helm.sh/stable
+    - name: mariadb
+        url: oci://registry-1.docker.io/bitnamicharts
 
 valuesPaths:
     - "{{ .Release.Name }}/values.yaml"
