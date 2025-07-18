@@ -131,6 +131,8 @@ variables:
   HELM_PACKAGE_VERSION: "0.1.0"
   HELM_PACKAGE_REPO: "https://$CI_SERVER_HOST/api/v4/projects/$CI_PROJECT_ID/packages/helm"
 
+image: alpine/helm:3.13.3
+
 build:
   stage: build
   script:

@@ -74,6 +74,8 @@ release-helmfile/
 - Place an existing or new Helm chart in the `charts/` folder. you could resuse chart from lab `gitlab_ci_lab_helm.md`
 
 #! give an example of release description one for local and for external
+
+
 ---
 
 ## 4. Create Helmfile for Each Logical Tier
@@ -101,6 +103,43 @@ releases:
 ```
 
 ---
+common.yaml
+
+repositories:
+  - name: strikerz
+    url: "{{ .StateValues.registry.helm }}"
+    oci: true
+
+helmDefaults:
+  wait: {{ .StateValues | get "helmDefaults.wait" true | toYaml }}
+  timeout: {{ .StateValues | get "helmDefaults.timeout" 1200 | toYaml }}
+  historyMax: {{ .StateValues | get  "helmDefaults.historyMax" 3 | toYaml }}
+  atomic: {{ .StateValues | get "helmDefaults.atomic" false | toYaml }}
+  cleanupOnFail: {{ .StateValues | get "helmDefaults.cleanupOnFail" false | toYaml }}
+  waitForJobs: {{ .StateValues | get "helmDefaults.waitForJobs" true | toYaml }}
+  #  default "" value means current kubernetes context. You can check this with `kubectl config current-context`.
+  kubeContext: {{ .StateValues | get "helmDefaults.kubeContext" "" | toYaml }}
+  # when switch to agones 1.48 remove from ci flag -skip-schema-validation
+  # syncArgs: 
+  #   - --skip-schema-validation
+
+templates:
+  values: &values
+    missingFileHandler: Warn
+    values:
+      - "{{`{{ .Release.Name }}`}}/values.yaml"
+      - "{{`{{ .Release.Name }}`}}/values.yaml.gotmpl"
+      - "{{`{{ .Release.Name }}`}}/values-hosting-{{`{{ .StateValues.hosting }}`}}.yaml"
+      - "{{`{{ .Release.Name }}`}}/values-hosting-{{`{{ .StateValues.hosting }}`}}.yaml.gotmpl"
+      - "{{`{{ .Release.Name }}`}}/values-tier-{{`{{ .StateValues.tier }}`}}.yaml"
+      - "{{`{{ .Release.Name }}`}}/values-tier-{{`{{ .StateValues.tier }}`}}.yaml.gotmpl"
+      - "{{`{{ .Release.Name }}`}}/values-network-{{`{{ .StateValues.network }}`}}.yaml"
+      - "{{`{{ .Release.Name }}`}}/values-network-{{`{{ .StateValues.network }}`}}.yaml.gotmpl"
+      - "{{`{{ .Release.Name }}`}}/values-type-{{`{{ .StateValues.type }}`}}.yaml"
+      - "{{`{{ .Release.Name }}`}}/values-type-{{`{{ .StateValues.type }}`}}.yaml.gotmpl"
+      - "{{`{{ .Release.Name }}`}}/values-env-{{`{{ .Environment.Name }}`}}.yaml"
+      - "{{`{{ .Release.Name }}`}}/values-env-{{`{{ .Environment.Name }}`}}.yaml.gotmpl"
+
 
 ## 5. Reference Logical Tiers in the Main Helmfile
 
@@ -114,6 +153,71 @@ helmfiles:
     - path: release/common-tier/helmfile.yaml
     - path: release/another-tier/helmfile.yaml
 ```
+helmfile.yaml
+
+bases:
+  - environments.yaml
+
+---
+helmfiles:
+# Shared monitoring helmfile
+# Must be  installed in every environment regardless of cluster type
+  - path: "releases/shared-monitoring/helmfile.yaml"
+    values:
+    - action: "create"
+    -
+{{ toYaml .Environment.Values | indent 6 }}
+
+#
+# Shared helmfile
+# Must be  installed in every environment regardless of cluster type
+  - path: "releases/infra-shared/helmfile.yaml"
+    values:
+    -
+{{ toYaml .Environment.Values | indent 6 }}
+
+
+
+release.helmfile.yaml
+
+# Install prometheus-stack(Grafana,Prometheus,Alertmanager)
+  - name: prometheus-stack
+    chart: strikerz/kube-prometheus-stack
+    namespace: monitoring
+    labels:
+      component: monitoring
+    version: {{ .StateValues.monitoring.chartVersion }}
+    installed: {{ .Values | get "monitoring.prometheus.enabled" false | toYaml }}
+    {{ if or (eq .Environment.Name "backoffice") (eq .Environment.Name "midoffice") }}
+    hooks:
+    - events:
+      - postsync
+      showlogs: true
+      command: "../../ci/kubectl_patch_servicemonitor_with_basicauth.sh"
+      args:
+        - "{{ `{{ .Release.KubeContext }}` }}"
+    {{ end }}
+    <<: *values
+    needs:
+      - tls-secret
+      - prometheus-stack-secrets
+
+  ##
+  ## Prometheus ALERTS 
+  ##
+  # Install alerts related to kubernetes resources
+  - name: alerts-k8s
+    chart: ../../charts/alerts-k8s
+    namespace: monitoring
+    labels:
+      component: monitoring
+    version: 0.3.0
+    installed: {{ .Values | get "monitoring.enabled" false | toYaml }}
+    # Alerts are defined by CRD that will be created after prometheus-stack installation
+    needs:
+      - victoria-metrics/prometheus-operator-crds
+    <<: *values
+
 
 ---
 
@@ -158,6 +262,27 @@ environments:
             enableFeatureX: false
 ```
 
+environments:
+  stagings:
+    values:
+      - env-values/env-base.yaml
+      - env-values/env-type-meta.yaml
+      - helmDefaults:
+          kubeContext: baremetal-backend-stagings
+      - tier: dev
+      - nat:
+          enabled: true
+      - dashboard:
+          enabled: true
+  demo:
+    values:
+      - env-values/env-base.yaml
+      - env-values/env-type-meta.yaml
+      - helmDefaults:
+          kubeContext: baremetal-backend-demo
+      - tier: prod
+      - dashboard:
+          enabled: true
 ---
 
 ## 8. Create GitLab Pipeline in `.gitlab.yaml`
