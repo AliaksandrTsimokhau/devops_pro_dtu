@@ -91,54 +91,62 @@ release-helmfile/
 # release/common-tier/helmfile.yaml
 releases:
     - name: my-local-app
-        chart: ../../charts/my-local-app
+        chart: ../../charts/my-local-app #local chart
         values:
             - values.yaml
 
     - name: nginx-ingress
-        chart: stable/nginx-ingress
+        chart: stable/nginx-ingress #external repo chart
         version: 4.0.6
         values:
             - values-nginx.yaml
 ```
 
 ---
-common.yaml
+## Example: `common.yaml`
+
+This file defines shared Helm repository settings and default Helmfile behaviors.
+
+```yaml
+# release/common.yaml
 
 repositories:
-  - name: strikerz
-    url: "{{ .StateValues.registry.helm }}"
-    oci: true
+    - name: remote
+        url: "{{ .StateValues.registry.helm }}"
+        oci: true
 
 helmDefaults:
-  wait: {{ .StateValues | get "helmDefaults.wait" true | toYaml }}
-  timeout: {{ .StateValues | get "helmDefaults.timeout" 1200 | toYaml }}
-  historyMax: {{ .StateValues | get  "helmDefaults.historyMax" 3 | toYaml }}
-  atomic: {{ .StateValues | get "helmDefaults.atomic" false | toYaml }}
-  cleanupOnFail: {{ .StateValues | get "helmDefaults.cleanupOnFail" false | toYaml }}
-  waitForJobs: {{ .StateValues | get "helmDefaults.waitForJobs" true | toYaml }}
-  #  default "" value means current kubernetes context. You can check this with `kubectl config current-context`.
-  kubeContext: {{ .StateValues | get "helmDefaults.kubeContext" "" | toYaml }}
-  # when switch to agones 1.48 remove from ci flag -skip-schema-validation
-  # syncArgs: 
-  #   - --skip-schema-validation
+    wait: {{ .StateValues | get "helmDefaults.wait" true | toYaml }}
+    timeout: {{ .StateValues | get "helmDefaults.timeout" 1200 | toYaml }}
+    historyMax: {{ .StateValues | get "helmDefaults.historyMax" 3 | toYaml }}
+    atomic: {{ .StateValues | get "helmDefaults.atomic" false | toYaml }}
+    cleanupOnFail: {{ .StateValues | get "helmDefaults.cleanupOnFail" false | toYaml }}
+    waitForJobs: {{ .StateValues | get "helmDefaults.waitForJobs" true | toYaml }}
+    # Default "" value means current Kubernetes context.
+    kubeContext: {{ .StateValues | get "helmDefaults.kubeContext" "" | toYaml }}
+    # Example: syncArgs can be used to skip schema validation if needed
+    # syncArgs:
+    #   - --skip-schema-validation
+```
 
+```yaml
 templates:
-  values: &values
-    missingFileHandler: Warn
-    values:
-      - "{{`{{ .Release.Name }}`}}/values.yaml"
-      - "{{`{{ .Release.Name }}`}}/values.yaml.gotmpl"
-      - "{{`{{ .Release.Name }}`}}/values-hosting-{{`{{ .StateValues.hosting }}`}}.yaml"
-      - "{{`{{ .Release.Name }}`}}/values-hosting-{{`{{ .StateValues.hosting }}`}}.yaml.gotmpl"
-      - "{{`{{ .Release.Name }}`}}/values-tier-{{`{{ .StateValues.tier }}`}}.yaml"
-      - "{{`{{ .Release.Name }}`}}/values-tier-{{`{{ .StateValues.tier }}`}}.yaml.gotmpl"
-      - "{{`{{ .Release.Name }}`}}/values-network-{{`{{ .StateValues.network }}`}}.yaml"
-      - "{{`{{ .Release.Name }}`}}/values-network-{{`{{ .StateValues.network }}`}}.yaml.gotmpl"
-      - "{{`{{ .Release.Name }}`}}/values-type-{{`{{ .StateValues.type }}`}}.yaml"
-      - "{{`{{ .Release.Name }}`}}/values-type-{{`{{ .StateValues.type }}`}}.yaml.gotmpl"
-      - "{{`{{ .Release.Name }}`}}/values-env-{{`{{ .Environment.Name }}`}}.yaml"
-      - "{{`{{ .Release.Name }}`}}/values-env-{{`{{ .Environment.Name }}`}}.yaml.gotmpl"
+    values: &values
+        missingFileHandler: Warn
+        values:
+            - "{{ .Release.Name }}/values.yaml"
+            - "{{ .Release.Name }}/values.yaml.gotmpl"
+            - "{{ .Release.Name }}/values-hosting-{{ .StateValues.hosting }}.yaml"
+            - "{{ .Release.Name }}/values-hosting-{{ .StateValues.hosting }}.yaml.gotmpl"
+            - "{{ .Release.Name }}/values-tier-{{ .StateValues.tier }}.yaml"
+            - "{{ .Release.Name }}/values-tier-{{ .StateValues.tier }}.yaml.gotmpl"
+            - "{{ .Release.Name }}/values-network-{{ .StateValues.network }}.yaml"
+            - "{{ .Release.Name }}/values-network-{{ .StateValues.network }}.yaml.gotmpl"
+            - "{{ .Release.Name }}/values-type-{{ .StateValues.type }}.yaml"
+            - "{{ .Release.Name }}/values-type-{{ .StateValues.type }}.yaml.gotmpl"
+            - "{{ .Release.Name }}/values-env-{{ .Environment.Name }}.yaml"
+            - "{{ .Release.Name }}/values-env-{{ .Environment.Name }}.yaml.gotmpl"
+```
 
 
 ## 5. Reference Logical Tiers in the Main Helmfile
@@ -153,70 +161,109 @@ helmfiles:
     - path: release/common-tier/helmfile.yaml
     - path: release/another-tier/helmfile.yaml
 ```
-helmfile.yaml
+
+You can also use more advanced referencing and base files:
+
+```yaml
+# helmfile.yaml
 
 bases:
-  - environments.yaml
+    - environments.yaml
+
+helmfiles:
+    # Shared monitoring helmfile
+    # Must be installed in every environment regardless of cluster type
+    - path: "releases/shared-monitoring/helmfile.yaml"
+        values:
+            - action: "create"
+            - {{ toYaml .Environment.Values | indent 6 }}
+
+    # Shared infra helmfile
+    # Must be installed in every environment regardless of cluster type
+    - path: "releases/infra-shared/helmfile.yaml"
+        values:
+            - {{ toYaml .Environment.Values | indent 6 }}
+```
+
 
 ---
-helmfiles:
-# Shared monitoring helmfile
-# Must be  installed in every environment regardless of cluster type
-  - path: "releases/shared-monitoring/helmfile.yaml"
-    values:
-    - action: "create"
-    -
-{{ toYaml .Environment.Values | indent 6 }}
 
-#
-# Shared helmfile
-# Must be  installed in every environment regardless of cluster type
-  - path: "releases/infra-shared/helmfile.yaml"
-    values:
-    -
-{{ toYaml .Environment.Values | indent 6 }}
+## 5a. Specify `kubeContext` in Environment Values
+
+To ensure Helmfile deploys to the correct Kubernetes cluster, define the `kubeContext` for each environment in your `environments.yaml`. You can set this directly under each environment or within `helmDefaults` for more granular control.
+
+**Example:**
+
+```yaml
+# environments.yaml
+environments:
+    dev:
+        kubeContext: kind-dev
+        helmDefaults:
+            kubeContext: kind-dev
+    prod:
+        kubeContext: prod-context
+        helmDefaults:
+            kubeContext: prod-context
+```
+
+- The `kubeContext` field tells Helmfile which Kubernetes context to use for that environment.
+- Setting `helmDefaults.kubeContext` overrides the default context for all releases in that environment.
+- You can reference these values in your Helmfile templates to ensure deployments target the intended cluster.
+
+--- 
 
 
+## Example: Release Descriptions for Local and External Charts
 
-release.helmfile.yaml
+Below is an example of how to define releases in a `helmfile.yaml` for a logical tier. This demonstrates deploying both an external chart (from a remote registry) and a local chart (from your repository).
 
-# Install prometheus-stack(Grafana,Prometheus,Alertmanager)
-  - name: prometheus-stack
-    chart: strikerz/kube-prometheus-stack
-    namespace: monitoring
-    labels:
-      component: monitoring
-    version: {{ .StateValues.monitoring.chartVersion }}
-    installed: {{ .Values | get "monitoring.prometheus.enabled" false | toYaml }}
-    {{ if or (eq .Environment.Name "backoffice") (eq .Environment.Name "midoffice") }}
-    hooks:
-    - events:
-      - postsync
-      showlogs: true
-      command: "../../ci/kubectl_patch_servicemonitor_with_basicauth.sh"
-      args:
-        - "{{ `{{ .Release.KubeContext }}` }}"
-    {{ end }}
-    <<: *values
-    needs:
-      - tls-secret
-      - prometheus-stack-secrets
+```yaml
+# release/common-tier/helmfile.yaml
 
-  ##
-  ## Prometheus ALERTS 
-  ##
-  # Install alerts related to kubernetes resources
-  - name: alerts-k8s
-    chart: ../../charts/alerts-k8s
-    namespace: monitoring
-    labels:
-      component: monitoring
-    version: 0.3.0
-    installed: {{ .Values | get "monitoring.enabled" false | toYaml }}
-    # Alerts are defined by CRD that will be created after prometheus-stack installation
-    needs:
-      - victoria-metrics/prometheus-operator-crds
-    <<: *values
+releases:
+    # External chart: Prometheus Stack (Grafana, Prometheus, Alertmanager)
+    - name: prometheus-stack
+        chart: strikerz/kube-prometheus-stack
+        namespace: monitoring
+        labels:
+            component: monitoring
+        version: {{ .StateValues.monitoring.chartVersion }}
+        installed: {{ .Values | get "monitoring.prometheus.enabled" false | toYaml }}
+        {{ if or (eq .Environment.Name "backoffice") (eq .Environment.Name "midoffice") }}
+        hooks:
+            - events:
+                    - postsync
+                showlogs: true
+                command: "../../ci/kubectl_patch_servicemonitor_with_basicauth.sh"
+                args:
+                    - "{{ `{{ .Release.KubeContext }}` }}"
+        {{ end }}
+        <<: *values
+        needs:
+            - tls-secret
+            - prometheus-stack-secrets
+
+    # Local chart: Kubernetes Alerts
+    - name: alerts-k8s
+        chart: ../../charts/alerts-k8s
+        namespace: monitoring
+        labels:
+            component: monitoring
+        version: 0.3.0
+        installed: {{ .Values | get "monitoring.enabled" false | toYaml }}
+        # Alerts are defined by CRD that will be created after prometheus-stack installation
+        needs:
+            - victoria-metrics/prometheus-operator-crds
+        <<: *values
+```
+
+**Instructions:**
+- Place this example in the `helmfile.yaml` of your logical tier (e.g., `release/common-tier/helmfile.yaml`).
+- Adjust chart names, versions, and values as needed for your environment.
+- The first release (`prometheus-stack`) pulls from an external registry, while the second (`alerts-k8s`) uses a local chart from your `charts/` directory.
+- Use the `needs` field to specify dependencies between releases.
+- Use `<<: *values` to inherit common values templates as defined in your `common.yaml`.
 
 
 ---
@@ -262,27 +309,52 @@ environments:
             enableFeatureX: false
 ```
 
+## Another Example: `environments.yaml`
+
+Below is an alternative example of how to structure your `environments.yaml` file, including multiple environments with custom values and settings:
+
+```yaml
 environments:
-  stagings:
-    values:
-      - env-values/env-base.yaml
-      - env-values/env-type-meta.yaml
-      - helmDefaults:
-          kubeContext: baremetal-backend-stagings
-      - tier: dev
-      - nat:
-          enabled: true
-      - dashboard:
-          enabled: true
-  demo:
-    values:
-      - env-values/env-base.yaml
-      - env-values/env-type-meta.yaml
-      - helmDefaults:
-          kubeContext: baremetal-backend-demo
-      - tier: prod
-      - dashboard:
-          enabled: true
+    stagings:
+        values:
+            - env-values/env-base.yaml
+            - env-values/env-type-meta.yaml
+        helmDefaults:
+            kubeContext: baremetal-backend-stagings
+        tier: dev
+        nat:
+            enabled: true
+        dashboard:
+            enabled: true
+
+    demo:
+        values:
+            - env-values/env-base.yaml
+            - env-values/env-type-meta.yaml
+        helmDefaults:
+            kubeContext: baremetal-backend-demo
+        tier: prod
+        dashboard:
+            enabled: true
+
+    production:
+        values:
+            - env-values/env-base.yaml
+            - env-values/env-type-prod.yaml
+        helmDefaults:
+            kubeContext: baremetal-backend-prod
+        tier: prod
+        nat:
+            enabled: false
+        dashboard:
+            enabled: false
+```
+
+This example demonstrates:
+- How to define multiple environments (`stagings`, `demo`, `production`)
+- How to specify environment-specific values files
+- How to set custom `helmDefaults` and other environment-specific variables
+- How to enable or disable features per environment
 ---
 
 ## 8. Create GitLab Pipeline in `.gitlab.yaml`
